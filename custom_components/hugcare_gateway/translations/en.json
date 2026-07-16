@@ -1,0 +1,81 @@
+{
+  "title": "HugCare Gateway",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Set up HugCare Gateway",
+        "description": "Configure the runtime settings that will be exported for NetDaemon.",
+        "data": {
+          "api_url": "Provision API URL",
+          "device_no": "DeviceNo",
+          "func_name": "FuncName",
+          "ipv4_address": "IPv4 Address",
+          "mac_address": "MAC Address",
+          "enabled": "Enable provisioning",
+          "run_on_startup": "Run provisioning on startup",
+          "allow_reregister": "Allow re-register",
+          "trigger_entity_id": "Trigger entity id",
+          "trigger_on_state": "Trigger state",
+          "reset_trigger_after_run": "Reset trigger after run",
+          "status_entity_id": "Status entity id",
+          "publish_persistent_notification": "Publish persistent notification",
+          "notification_title": "Notification title",
+          "credential_file_path": "Credential file path"
+        }
+      },
+      "reconfigure": {
+        "title": "Reconfigure HugCare Gateway",
+        "description": "Update the runtime settings exported for NetDaemon.",
+        "data": {
+          "api_url": "Provision API URL",
+          "device_no": "DeviceNo",
+          "func_name": "FuncName",
+          "ipv4_address": "IPv4 Address",
+          "mac_address": "MAC Address",
+          "enabled": "Enable provisioning",
+          "run_on_startup": "Run provisioning on startup",
+          "allow_reregister": "Allow re-register",
+          "trigger_entity_id": "Trigger entity id",
+          "trigger_on_state": "Trigger state",
+          "reset_trigger_after_run": "Reset trigger after run",
+          "status_entity_id": "Status entity id",
+          "publish_persistent_notification": "Publish persistent notification",
+          "notification_title": "Notification title",
+          "credential_file_path": "Credential file path"
+        }
+      }
+    },
+    "error": {
+      "invalid_api_url": "The API URL must be a valid http/https URL.",
+      "required_field": "This field is required.",
+      "invalid_entity_id": "Entity id must look like domain.object_id."
+    },
+    "abort": {
+      "already_configured": "HugCare Gateway is already configured."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "HugCare Gateway settings",
+        "data": {
+          "api_url": "Provision API URL",
+          "device_no": "DeviceNo",
+          "func_name": "FuncName",
+          "ipv4_address": "IPv4 Address",
+          "mac_address": "MAC Address",
+          "enabled": "Enable provisioning",
+          "run_on_startup": "Run provisioning on startup",
+          "allow_reregister": "Allow re-register",
+          "trigger_entity_id": "Trigger entity id",
+          "trigger_on_state": "Trigger state",
+          "reset_trigger_after_run": "Reset trigger after run",
+          "status_entity_id": "Status entity id",
+          "publish_persistent_notification": "Publish persistent notification",
+          "notification_title": "Notification title",
+          "credential_file_path": "Credential file path"
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,81 @@
+{
+  "title": "HugCare Gateway",
+  "config": {
+    "step": {
+      "user": {
+        "title": "設定 HugCare Gateway",
+        "description": "設定要匯出給 NetDaemon 使用的執行參數。",
+        "data": {
+          "api_url": "註冊 API URL",
+          "device_no": "DeviceNo",
+          "func_name": "FuncName",
+          "ipv4_address": "IPv4 位址",
+          "mac_address": "MAC 位址",
+          "enabled": "啟用註冊流程",
+          "run_on_startup": "啟動時執行註冊",
+          "allow_reregister": "允許重新註冊",
+          "trigger_entity_id": "觸發 entity id",
+          "trigger_on_state": "觸發狀態",
+          "reset_trigger_after_run": "執行後重設觸發器",
+          "status_entity_id": "狀態 entity id",
+          "publish_persistent_notification": "發送 persistent notification",
+          "notification_title": "通知標題",
+          "credential_file_path": "憑證檔案路徑"
+        }
+      },
+      "reconfigure": {
+        "title": "重新設定 HugCare Gateway",
+        "description": "更新匯出給 NetDaemon 的執行參數。",
+        "data": {
+          "api_url": "註冊 API URL",
+          "device_no": "DeviceNo",
+          "func_name": "FuncName",
+          "ipv4_address": "IPv4 位址",
+          "mac_address": "MAC 位址",
+          "enabled": "啟用註冊流程",
+          "run_on_startup": "啟動時執行註冊",
+          "allow_reregister": "允許重新註冊",
+          "trigger_entity_id": "觸發 entity id",
+          "trigger_on_state": "觸發狀態",
+          "reset_trigger_after_run": "執行後重設觸發器",
+          "status_entity_id": "狀態 entity id",
+          "publish_persistent_notification": "發送 persistent notification",
+          "notification_title": "通知標題",
+          "credential_file_path": "憑證檔案路徑"
+        }
+      }
+    },
+    "error": {
+      "invalid_api_url": "API URL 必須是有效的 http/https 位址。",
+      "required_field": "此欄位必填。",
+      "invalid_entity_id": "Entity id 格式必須像是 domain.object_id。"
+    },
+    "abort": {
+      "already_configured": "HugCare Gateway 已經設定過。"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "HugCare Gateway 設定",
+        "data": {
+          "api_url": "註冊 API URL",
+          "device_no": "DeviceNo",
+          "func_name": "FuncName",
+          "ipv4_address": "IPv4 位址",
+          "mac_address": "MAC 位址",
+          "enabled": "啟用註冊流程",
+          "run_on_startup": "啟動時執行註冊",
+          "allow_reregister": "允許重新註冊",
+          "trigger_entity_id": "觸發 entity id",
+          "trigger_on_state": "觸發狀態",
+          "reset_trigger_after_run": "執行後重設觸發器",
+          "status_entity_id": "狀態 entity id",
+          "publish_persistent_notification": "發送 persistent notification",
+          "notification_title": "通知標題",
+          "credential_file_path": "憑證檔案路徑"
+        }
+      }
+    }
+  }
+}
