@@ -1,5 +1,3 @@
 {
-  "name": "HugCare Gateway",
-  "content_in_root": true,
-  "homeassistant": "2024.1.0"
+  "name": "HugCare Gateway"
 }
