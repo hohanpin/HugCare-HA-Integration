@@ -79,67 +79,58 @@ class HugCareGatewayConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     VERSION = 1
 
     async def async_step_user(self, user_input: dict[str, Any] | None = None):
+        errors: dict[str, str] = {}
         if user_input is not None:
-            await self.async_set_unique_id(RUNTIME_UNIQUE_ID)
-            self._abort_if_unique_id_configured()
-            return self.async_create_entry(title=DEFAULT_TITLE, data=user_input)
+            errors = _validate_input(user_input)
+            if not errors:
+                await self.async_set_unique_id(RUNTIME_UNIQUE_ID)
+                self._abort_if_unique_id_configured()
+                return self.async_create_entry(title=DEFAULT_TITLE, data=user_input)
 
         return self.async_show_form(
             step_id="user",
-            data_schema=_build_schema({}),
+            data_schema=_build_schema(user_input or {}),
+            errors=errors,
         )
-                errors: dict[str, str] = {}
 
-                    errors = _validate_input(user_input)
-                    if not errors:
-                        await self.async_set_unique_id(RUNTIME_UNIQUE_ID)
-                        self._abort_if_unique_id_configured()
-                        return self.async_create_entry(title=DEFAULT_TITLE, data=user_input)
+    async def async_step_reconfigure(self, user_input: dict[str, Any] | None = None):
+        entry = self._get_reconfigure_entry()
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            errors = _validate_input(user_input)
+            if not errors:
+                await self.async_set_unique_id(RUNTIME_UNIQUE_ID)
+                self._abort_if_unique_id_mismatch()
+                return self.async_update_reload_and_abort(entry, data_updates=user_input)
 
-                return self.async_show_form(
-                    step_id="user",
-                    data_schema=_build_schema(user_input or {}),
-                    errors=errors,
-                )
+        return self.async_show_form(
+            step_id="reconfigure",
+            data_schema=_build_schema(user_input or dict(entry.data)),
+            errors=errors,
+        )
 
-            async def async_step_reconfigure(self, user_input: dict[str, Any] | None = None):
-                entry = self._get_reconfigure_entry()
-                errors: dict[str, str] = {}
-                if user_input is not None:
-                    errors = _validate_input(user_input)
-                    if not errors:
-                        await self.async_set_unique_id(RUNTIME_UNIQUE_ID)
-                        self._abort_if_unique_id_mismatch()
-                        return self.async_update_reload_and_abort(entry, data_updates=user_input)
-
-                return self.async_show_form(
-                    step_id="reconfigure",
-                    data_schema=_build_schema(user_input or dict(entry.data)),
-                    errors=errors,
-                )
-
-            @staticmethod
-            @callback
-            def async_get_options_flow(config_entry: config_entries.ConfigEntry):
-                return HugCareGatewayOptionsFlow(config_entry)
+    @staticmethod
+    @callback
+    def async_get_options_flow(config_entry: config_entries.ConfigEntry):
+        return HugCareGatewayOptionsFlow(config_entry)
 
 
-        class HugCareGatewayOptionsFlow(config_entries.OptionsFlow):
-            """Handle options flow for HugCare Gateway."""
+class HugCareGatewayOptionsFlow(config_entries.OptionsFlow):
+    """Handle options flow for HugCare Gateway."""
 
-            def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
-                self._config_entry = config_entry
+    def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
+        self._config_entry = config_entry
 
-            async def async_step_init(self, user_input: dict[str, Any] | None = None):
-                errors: dict[str, str] = {}
-                if user_input is not None:
-                    errors = _validate_input(user_input)
-                    if not errors:
-                        self.hass.config_entries.async_update_entry(self._config_entry, data=user_input)
-                        return self.async_create_entry(title="", data={})
+    async def async_step_init(self, user_input: dict[str, Any] | None = None):
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            errors = _validate_input(user_input)
+            if not errors:
+                self.hass.config_entries.async_update_entry(self._config_entry, data=user_input)
+                return self.async_create_entry(title="", data={})
 
-                return self.async_show_form(
-                    step_id="init",
-                    data_schema=_build_schema(user_input or dict(self._config_entry.data)),
-                    errors=errors,
-                )
+        return self.async_show_form(
+            step_id="init",
+            data_schema=_build_schema(user_input or dict(self._config_entry.data)),
+            errors=errors,
+        )
