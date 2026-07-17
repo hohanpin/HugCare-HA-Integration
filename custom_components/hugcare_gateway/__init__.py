@@ -23,7 +23,7 @@ async def async_setup(hass: HomeAssistant, config: dict[str, Any]) -> bool:
 
 async def async_setup_entry(hass: HomeAssistant, entry: HugCareConfigEntry) -> bool:
     """Set up HugCare Gateway from a config entry."""
-    await _async_write_runtime_config(entry)
+    await _async_write_runtime_config(hass, entry)
     unsubscribe = entry.add_update_listener(_async_update_listener)
     hass.data[DOMAIN][entry.entry_id] = unsubscribe
     return True
@@ -39,10 +39,10 @@ async def async_unload_entry(hass: HomeAssistant, entry: HugCareConfigEntry) -> 
 
 async def _async_update_listener(hass: HomeAssistant, entry: HugCareConfigEntry) -> None:
     """Handle config entry updates."""
-    await _async_write_runtime_config(entry)
+    await _async_write_runtime_config(hass, entry)
 
 
-async def _async_write_runtime_config(entry: HugCareConfigEntry) -> None:
+async def _async_write_runtime_config(hass: HomeAssistant, entry: HugCareConfigEntry) -> None:
     """Write config entry data to the runtime JSON file read by NetDaemon."""
     payload = {
         "enabled": entry.data.get("enabled", True),
@@ -62,7 +62,7 @@ async def _async_write_runtime_config(entry: HugCareConfigEntry) -> None:
         "credentialFilePath": entry.data.get("credential_file_path", "./data/azure/credential.json")
     }
 
-    await entry.hass.async_add_executor_job(_write_runtime_config_sync, payload)
+    await hass.async_add_executor_job(_write_runtime_config_sync, payload)
     _LOGGER.info("Wrote HugCare runtime config to %s", RUNTIME_CONFIG_PATH)
 
 
