@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from typing import Any
 from urllib.parse import urlparse
 
@@ -16,6 +17,8 @@ from .const import (
     DOMAIN,
     RUNTIME_UNIQUE_ID,
 )
+
+_LOGGER = logging.getLogger(__name__)
 
 
 def _validate_input(data: dict[str, Any]) -> dict[str, str]:
@@ -79,6 +82,7 @@ async def _async_detect_network_defaults(hass) -> dict[str, str]:
     try:
         adapters = await async_get_adapters(hass)
     except Exception:
+        _LOGGER.exception("Failed to query network adapters for HugCare defaults")
         return {}
 
     def _extract_ipv4(adapter: dict[str, Any]) -> str:
@@ -113,7 +117,23 @@ async def _async_detect_network_defaults(hass) -> dict[str, str]:
 
     default_first = sorted(adapters, key=lambda a: 0 if a.get("default") else 1)
 
-    for adapter in default_first:
+    for index, adapter in enumerate(default_first):
+        mac_raw = {
+            key: adapter.get(key)
+            for key in ("mac_address", "mac", "hw_address", "hwaddress")
+            if key in adapter
+        }
+        _LOGGER.warning(
+            "HugCare adapter diagnostic index=%s name=%s default=%s enabled=%s keys=%s ipv4_raw=%s mac_raw=%s",
+            index,
+            adapter.get("name"),
+            adapter.get("default"),
+            adapter.get("enabled"),
+            sorted(adapter.keys()),
+            adapter.get("ipv4"),
+            mac_raw,
+        )
+
         ipv4_address = _extract_ipv4(adapter)
         mac_address = _extract_mac(adapter)
 
@@ -123,7 +143,15 @@ async def _async_detect_network_defaults(hass) -> dict[str, str]:
                 detected["ipv4_address"] = ipv4_address
             if mac_address:
                 detected["mac_address"] = mac_address
+            _LOGGER.warning(
+                "HugCare selected adapter index=%s detected_ipv4=%s detected_mac=%s",
+                index,
+                ipv4_address,
+                mac_address,
+            )
             return detected
+
+    _LOGGER.warning("HugCare adapter diagnostic found no usable ipv4/mac values")
 
     return {}
 
