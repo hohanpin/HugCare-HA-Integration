@@ -209,9 +209,10 @@ def _validate_input(data: dict[str, Any]) -> dict[str, str]:
     errors: dict[str, str] = {}
 
     api_url = str(data.get("api_url", "")).strip()
-    parsed = urlparse(api_url)
-    if not api_url or parsed.scheme not in {"http", "https"} or not parsed.netloc:
-        errors["api_url"] = "invalid_api_url"
+    if api_url:
+        parsed = urlparse(api_url)
+        if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+            errors["api_url"] = "invalid_api_url"
 
     if not str(data.get("device_no", "")).strip():
         errors["device_no"] = "required_field"
@@ -233,7 +234,7 @@ def _validate_input(data: dict[str, Any]) -> dict[str, str]:
 def _build_schema(defaults: dict[str, Any]) -> vol.Schema:
     return vol.Schema(
         {
-            vol.Required("api_url", default=defaults.get("api_url", "")): str,
+            vol.Optional("api_url", default=defaults.get("api_url", "")): str,
             vol.Required("device_no", default=defaults.get("device_no", "")): str,
             vol.Required("func_name", default=defaults.get("func_name", "")): str,
             vol.Optional("ipv4_address", default=defaults.get("ipv4_address", "")): str,
