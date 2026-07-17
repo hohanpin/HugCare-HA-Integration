@@ -81,15 +81,41 @@ async def _async_detect_network_defaults(hass) -> dict[str, str]:
     except Exception:
         return {}
 
-    for adapter in adapters:
-        ipv4_entries = adapter.get("ipv4", [])
-        ipv4_address = ""
-        if ipv4_entries:
-            first_ipv4 = ipv4_entries[0]
-            if isinstance(first_ipv4, dict):
-                ipv4_address = str(first_ipv4.get("address", "")).strip()
+    def _extract_ipv4(adapter: dict[str, Any]) -> str:
+        ipv4_value = adapter.get("ipv4")
+        if isinstance(ipv4_value, list) and ipv4_value:
+            first = ipv4_value[0]
+            if isinstance(first, dict):
+                raw = str(first.get("address", "")).strip()
+                return raw.split("/", 1)[0]
+            raw = str(first).strip()
+            return raw.split("/", 1)[0]
 
-        mac_address = str(adapter.get("mac_address", "")).strip()
+        if isinstance(ipv4_value, dict):
+            address = ipv4_value.get("address")
+            if isinstance(address, list) and address:
+                raw = str(address[0]).strip()
+                return raw.split("/", 1)[0]
+            raw = str(address or "").strip()
+            return raw.split("/", 1)[0]
+
+        if isinstance(ipv4_value, str):
+            return ipv4_value.strip().split("/", 1)[0]
+
+        return ""
+
+    def _extract_mac(adapter: dict[str, Any]) -> str:
+        for key in ("mac_address", "mac", "hw_address", "hwaddress"):
+            raw = str(adapter.get(key, "")).strip()
+            if raw:
+                return raw
+        return ""
+
+    default_first = sorted(adapters, key=lambda a: 0 if a.get("default") else 1)
+
+    for adapter in default_first:
+        ipv4_address = _extract_ipv4(adapter)
+        mac_address = _extract_mac(adapter)
 
         if ipv4_address or mac_address:
             detected: dict[str, str] = {}
