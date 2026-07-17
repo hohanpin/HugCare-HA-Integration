@@ -334,15 +334,66 @@ async def _async_detect_network_defaults(hass) -> dict[str, str]:
         try:
             mac_path = Path("/sys/class/net") / interface_name / "address"
             if not mac_path.exists():
+                _LOGGER.warning(
+                    "HugCare adapter diagnostic sysfs path not found for interface=%s path=%s",
+                    interface_name,
+                    mac_path,
+                )
                 return ""
             raw = mac_path.read_text(encoding="utf-8").strip()
             mac = _normalize_mac(raw)
             if mac and mac != "00:00:00:00:00:00":
                 return mac
+            _LOGGER.warning(
+                "HugCare adapter diagnostic sysfs returned invalid mac interface=%s raw=%s",
+                interface_name,
+                raw,
+            )
         except Exception:
+            _LOGGER.exception(
+                "HugCare adapter diagnostic failed reading sysfs mac for interface=%s",
+                interface_name,
+            )
             return ""
 
         return ""
+
+    async def _async_mac_from_ip_link(interface_name: str) -> str:
+        if not interface_name:
+            return ""
+
+        try:
+            process = await asyncio.create_subprocess_exec(
+                "ip",
+                "link",
+                "show",
+                interface_name,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=5)
+        except Exception:
+            return ""
+
+        if process.returncode != 0:
+            _LOGGER.warning(
+                "HugCare adapter diagnostic ip link failed interface=%s err=%s",
+                interface_name,
+                stderr.decode(errors="ignore").strip(),
+            )
+            return ""
+
+        output = stdout.decode(errors="ignore")
+        match = re.search(r"link/ether\s+([0-9a-fA-F:]{17})", output)
+        if not match:
+            _LOGGER.warning(
+                "HugCare adapter diagnostic ip link no mac found interface=%s output=%s",
+                interface_name,
+                output.replace("\n", " | "),
+            )
+            return ""
+
+        return _normalize_mac(match.group(1))
 
     def _adapter_priority(adapter: dict[str, Any]) -> tuple[int, int, int, int, str]:
         name = str(adapter.get("name", ""))
@@ -404,6 +455,15 @@ async def _async_detect_network_defaults(hass) -> dict[str, str]:
                     adapter_name,
                     mac_address,
                 )
+            else:
+                mac_from_ip_link = await _async_mac_from_ip_link(adapter_name)
+                if mac_from_ip_link:
+                    mac_address = mac_from_ip_link
+                    _LOGGER.warning(
+                        "HugCare adapter diagnostic detected_mac_from_ip_link interface=%s mac=%s",
+                        adapter_name,
+                        mac_address,
+                    )
 
         if ipv4_address and mac_address:
             best_with_ipv4_and_mac = {"ipv4_address": ipv4_address, "mac_address": mac_address}
