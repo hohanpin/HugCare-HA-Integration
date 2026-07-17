@@ -7,6 +7,7 @@
         "description": "設定要匯出給 NetDaemon 使用的執行參數。",
         "data": {
           "api_url": "註冊 API URL",
+          "api_key": "API Key",
           "device_no": "DeviceNo",
           "func_name": "FuncName",
           "ipv4_address": "IPv4 位址",
@@ -28,6 +29,7 @@
         "description": "更新匯出給 NetDaemon 的執行參數。",
         "data": {
           "api_url": "註冊 API URL",
+          "api_key": "API Key",
           "device_no": "DeviceNo",
           "func_name": "FuncName",
           "ipv4_address": "IPv4 位址",
@@ -60,6 +62,7 @@
         "title": "HugCare Gateway 設定",
         "data": {
           "api_url": "註冊 API URL",
+          "api_key": "API Key",
           "device_no": "DeviceNo",
           "func_name": "FuncName",
           "ipv4_address": "IPv4 位址",

@@ -235,6 +235,7 @@ def _build_schema(defaults: dict[str, Any]) -> vol.Schema:
     return vol.Schema(
         {
             vol.Optional("api_url", default=defaults.get("api_url", "")): str,
+            vol.Optional("api_key", default=defaults.get("api_key", "")): str,
             vol.Required("device_no", default=defaults.get("device_no", "")): str,
             vol.Required("func_name", default=defaults.get("func_name", "")): str,
             vol.Optional("ipv4_address", default=defaults.get("ipv4_address", "")): str,

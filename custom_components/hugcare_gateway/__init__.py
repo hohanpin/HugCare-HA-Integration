@@ -49,6 +49,7 @@ async def _async_write_runtime_config(hass: HomeAssistant, entry: HugCareConfigE
         "runOnStartup": entry.data.get("run_on_startup", True),
         "allowReregister": entry.data.get("allow_reregister", False),
         "apiUrl": entry.data.get("api_url", ""),
+        "apiKey": entry.data.get("api_key", ""),
         "deviceNo": entry.data.get("device_no", ""),
         "funcName": entry.data.get("func_name", ""),
         "ipv4Address": entry.data.get("ipv4_address", ""),
