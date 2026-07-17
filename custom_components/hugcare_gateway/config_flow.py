@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 from urllib.parse import urlparse
+import uuid
 
 import voluptuous as vol
 from homeassistant.components.network import async_get_adapters
@@ -19,6 +20,43 @@ from .const import (
 )
 
 _LOGGER = logging.getLogger(__name__)
+
+
+def _normalize_mac(raw: Any) -> str:
+    """Normalize MAC to AA:BB:CC:DD:EE:FF format when possible."""
+    text = str(raw or "").strip().replace("-", ":")
+    if not text:
+        return ""
+
+    compact = text.replace(":", "")
+    if len(compact) == 12 and all(c in "0123456789abcdefABCDEF" for c in compact):
+        compact = compact.upper()
+        return ":".join(compact[i : i + 2] for i in range(0, 12, 2))
+
+    return text
+
+
+def _extract_mac_from_nested(data: Any) -> str:
+    """Search for a MAC-like value in nested adapter payload."""
+    if isinstance(data, dict):
+        for key in ("mac_address", "mac", "hw_address", "hwaddress", "address"):
+            value = data.get(key)
+            mac = _normalize_mac(value)
+            if mac and mac.count(":") == 5:
+                return mac
+
+        for value in data.values():
+            mac = _extract_mac_from_nested(value)
+            if mac:
+                return mac
+
+    if isinstance(data, list):
+        for item in data:
+            mac = _extract_mac_from_nested(item)
+            if mac:
+                return mac
+
+    return ""
 
 
 def _validate_input(data: dict[str, Any]) -> dict[str, str]:
@@ -110,10 +148,27 @@ async def _async_detect_network_defaults(hass) -> dict[str, str]:
 
     def _extract_mac(adapter: dict[str, Any]) -> str:
         for key in ("mac_address", "mac", "hw_address", "hwaddress"):
-            raw = str(adapter.get(key, "")).strip()
-            if raw:
-                return raw
+            mac = _normalize_mac(adapter.get(key, ""))
+            if mac:
+                return mac
+
+        nested_mac = _extract_mac_from_nested(adapter)
+        if nested_mac:
+            return nested_mac
+
         return ""
+
+    def _fallback_machine_mac() -> str:
+        node = uuid.getnode()
+        if node in (0, 0xFFFFFFFFFFFF):
+            return ""
+
+        # LSB of first octet indicates multicast; ignore obviously invalid node ids.
+        if (node >> 40) & 0x01:
+            return ""
+
+        raw = f"{node:012X}"
+        return ":".join(raw[i : i + 2] for i in range(0, 12, 2))
 
     default_first = sorted(adapters, key=lambda a: 0 if a.get("default") else 1)
 
@@ -150,6 +205,14 @@ async def _async_detect_network_defaults(hass) -> dict[str, str]:
                 mac_address,
             )
             return detected
+
+    fallback_mac = _fallback_machine_mac()
+    if fallback_mac:
+        _LOGGER.warning(
+            "HugCare adapter diagnostic fallback detected_mac_from_uuid=%s",
+            fallback_mac,
+        )
+        return {"mac_address": fallback_mac}
 
     _LOGGER.warning("HugCare adapter diagnostic found no usable ipv4/mac values")
 
