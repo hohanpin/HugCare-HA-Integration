@@ -55,6 +55,26 @@ def _is_preferred_ipv4(value: str) -> bool:
     )
 
 
+def _is_noisy_virtual_interface(name: str) -> bool:
+    """Detect virtual/container interfaces we should deprioritize."""
+    lowered = name.lower()
+    prefixes = (
+        "veth",
+        "docker",
+        "br-",
+        "virbr",
+        "cni",
+        "hassio",
+        "tailscale",
+        "wg",
+        "zt",
+        "tun",
+        "tap",
+        "lo",
+    )
+    return lowered.startswith(prefixes)
+
+
 def _extract_mac_from_nested(data: Any) -> str:
     """Search for a MAC-like value in nested adapter payload."""
     if isinstance(data, dict):
@@ -306,13 +326,38 @@ async def _async_detect_network_defaults(hass) -> dict[str, str]:
         raw = f"{node:012X}"
         return ":".join(raw[i : i + 2] for i in range(0, 12, 2))
 
-    default_first = sorted(adapters, key=lambda a: 0 if a.get("default") else 1)
+    def _adapter_priority(adapter: dict[str, Any]) -> tuple[int, int, int, int, str]:
+        name = str(adapter.get("name", ""))
+        enabled_rank = 0 if adapter.get("enabled", True) else 1
+        noisy_rank = 1 if _is_noisy_virtual_interface(name) else 0
+        has_ipv4_rank = 0 if _extract_ipv4(adapter) else 1
+        default_rank = 0 if adapter.get("default") else 1
+        return (enabled_rank, noisy_rank, has_ipv4_rank, default_rank, name)
+
+    default_first = sorted(adapters, key=_adapter_priority)
 
     best_with_ipv4_and_mac: dict[str, str] | None = None
     best_with_ipv4: dict[str, str] | None = None
     first_mac_only: str = ""
 
     for index, adapter in enumerate(default_first):
+        adapter_name = str(adapter.get("name", ""))
+        if not adapter.get("enabled", True):
+            _LOGGER.warning(
+                "HugCare adapter diagnostic skip disabled adapter index=%s name=%s",
+                index,
+                adapter_name,
+            )
+            continue
+
+        if _is_noisy_virtual_interface(adapter_name):
+            _LOGGER.warning(
+                "HugCare adapter diagnostic skip noisy interface index=%s name=%s",
+                index,
+                adapter_name,
+            )
+            continue
+
         mac_raw = {
             key: adapter.get(key)
             for key in ("mac_address", "mac", "hw_address", "hwaddress")
