@@ -4,6 +4,7 @@ from typing import Any
 from urllib.parse import urlparse
 
 import voluptuous as vol
+from homeassistant.components.network import async_get_adapters
 from homeassistant import config_entries
 from homeassistant.core import callback
 
@@ -73,6 +74,44 @@ def _build_schema(defaults: dict[str, Any]) -> vol.Schema:
     )
 
 
+async def _async_detect_network_defaults(hass) -> dict[str, str]:
+    """Detect default IPv4 and MAC from HA network adapters."""
+    try:
+        adapters = await async_get_adapters(hass)
+    except Exception:
+        return {}
+
+    for adapter in adapters:
+        ipv4_entries = adapter.get("ipv4", [])
+        ipv4_address = ""
+        if ipv4_entries:
+            first_ipv4 = ipv4_entries[0]
+            if isinstance(first_ipv4, dict):
+                ipv4_address = str(first_ipv4.get("address", "")).strip()
+
+        mac_address = str(adapter.get("mac_address", "")).strip()
+
+        if ipv4_address or mac_address:
+            detected: dict[str, str] = {}
+            if ipv4_address:
+                detected["ipv4_address"] = ipv4_address
+            if mac_address:
+                detected["mac_address"] = mac_address
+            return detected
+
+    return {}
+
+
+async def _async_defaults_with_network(hass, base_defaults: dict[str, Any]) -> dict[str, Any]:
+    """Merge detected network values only when form defaults are empty."""
+    defaults = dict(base_defaults)
+    detected = await _async_detect_network_defaults(hass)
+    for key in ("ipv4_address", "mac_address"):
+        if not str(defaults.get(key, "")).strip() and key in detected:
+            defaults[key] = detected[key]
+    return defaults
+
+
 class HugCareGatewayConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle a config flow for HugCare Gateway."""
 
@@ -87,9 +126,11 @@ class HugCareGatewayConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 self._abort_if_unique_id_configured()
                 return self.async_create_entry(title=DEFAULT_TITLE, data=user_input)
 
+        defaults = user_input or await _async_defaults_with_network(self.hass, {})
+
         return self.async_show_form(
             step_id="user",
-            data_schema=_build_schema(user_input or {}),
+            data_schema=_build_schema(defaults),
             errors=errors,
         )
 
@@ -103,9 +144,11 @@ class HugCareGatewayConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 self._abort_if_unique_id_mismatch()
                 return self.async_update_reload_and_abort(entry, data_updates=user_input)
 
+        defaults = user_input or await _async_defaults_with_network(self.hass, dict(entry.data))
+
         return self.async_show_form(
             step_id="reconfigure",
-            data_schema=_build_schema(user_input or dict(entry.data)),
+            data_schema=_build_schema(defaults),
             errors=errors,
         )
 
@@ -129,8 +172,10 @@ class HugCareGatewayOptionsFlow(config_entries.OptionsFlow):
                 self.hass.config_entries.async_update_entry(self._config_entry, data=user_input)
                 return self.async_create_entry(title="", data={})
 
+        defaults = user_input or await _async_defaults_with_network(self.hass, dict(self._config_entry.data))
+
         return self.async_show_form(
             step_id="init",
-            data_schema=_build_schema(user_input or dict(self._config_entry.data)),
+            data_schema=_build_schema(defaults),
             errors=errors,
         )
