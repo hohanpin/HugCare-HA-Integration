@@ -7,6 +7,7 @@ import asyncio
 import uuid
 import ipaddress
 import re
+from pathlib import Path
 
 import voluptuous as vol
 from homeassistant.components.network import async_get_adapters
@@ -326,6 +327,23 @@ async def _async_detect_network_defaults(hass) -> dict[str, str]:
         raw = f"{node:012X}"
         return ":".join(raw[i : i + 2] for i in range(0, 12, 2))
 
+    def _read_mac_from_sysfs_sync(interface_name: str) -> str:
+        if not interface_name:
+            return ""
+
+        try:
+            mac_path = Path("/sys/class/net") / interface_name / "address"
+            if not mac_path.exists():
+                return ""
+            raw = mac_path.read_text(encoding="utf-8").strip()
+            mac = _normalize_mac(raw)
+            if mac and mac != "00:00:00:00:00:00":
+                return mac
+        except Exception:
+            return ""
+
+        return ""
+
     def _adapter_priority(adapter: dict[str, Any]) -> tuple[int, int, int, int, str]:
         name = str(adapter.get("name", ""))
         enabled_rank = 0 if adapter.get("enabled", True) else 1
@@ -377,6 +395,16 @@ async def _async_detect_network_defaults(hass) -> dict[str, str]:
         ipv4_address = _extract_ipv4(adapter)
         mac_address = _extract_mac(adapter)
 
+        if ipv4_address and not mac_address:
+            mac_from_sysfs = await hass.async_add_executor_job(_read_mac_from_sysfs_sync, adapter_name)
+            if mac_from_sysfs:
+                mac_address = mac_from_sysfs
+                _LOGGER.warning(
+                    "HugCare adapter diagnostic detected_mac_from_sysfs interface=%s mac=%s",
+                    adapter_name,
+                    mac_address,
+                )
+
         if ipv4_address and mac_address:
             best_with_ipv4_and_mac = {"ipv4_address": ipv4_address, "mac_address": mac_address}
             _LOGGER.warning(
@@ -406,6 +434,11 @@ async def _async_detect_network_defaults(hass) -> dict[str, str]:
                 "HugCare adapter diagnostic fallback detected_mac_from_ha_cli_for_ipv4=%s mac=%s",
                 target_ipv4,
                 ha_cli_mac,
+            )
+        else:
+            _LOGGER.warning(
+                "HugCare adapter diagnostic no_mac_from_ha_cli_for_ipv4=%s",
+                target_ipv4,
             )
         return best_with_ipv4
 
