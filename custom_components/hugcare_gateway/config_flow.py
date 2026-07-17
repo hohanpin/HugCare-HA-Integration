@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 from urllib.parse import urlparse
+import asyncio
 import uuid
 
 import voluptuous as vol
@@ -55,6 +56,41 @@ def _extract_mac_from_nested(data: Any) -> str:
             mac = _extract_mac_from_nested(item)
             if mac:
                 return mac
+
+    return ""
+
+
+async def _async_mac_from_ha_cli() -> str:
+    """Try to resolve MAC address from `ha network info` output."""
+    try:
+        process = await asyncio.create_subprocess_exec(
+            "ha",
+            "network",
+            "info",
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=5)
+    except Exception:
+        return ""
+
+    if process.returncode != 0:
+        _LOGGER.warning("HugCare ha cli fallback failed: %s", stderr.decode(errors="ignore").strip())
+        return ""
+
+    output = stdout.decode(errors="ignore")
+    for line in output.splitlines():
+        stripped = line.strip()
+        if not stripped.lower().startswith("mac:"):
+            continue
+
+        parts = stripped.split(":", 1)
+        if len(parts) != 2:
+            continue
+
+        mac = _normalize_mac(parts[1])
+        if mac:
+            return mac
 
     return ""
 
@@ -205,6 +241,14 @@ async def _async_detect_network_defaults(hass) -> dict[str, str]:
                 mac_address,
             )
             return detected
+
+    ha_cli_mac = await _async_mac_from_ha_cli()
+    if ha_cli_mac:
+        _LOGGER.warning(
+            "HugCare adapter diagnostic fallback detected_mac_from_ha_cli=%s",
+            ha_cli_mac,
+        )
+        return {"mac_address": ha_cli_mac}
 
     fallback_mac = _fallback_machine_mac()
     if fallback_mac:
