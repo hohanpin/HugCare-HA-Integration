@@ -1,8 +1,13 @@
 {
   "domain": "hugcare_gateway",
   "name": "HugCare Gateway",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "config_flow": true,
-  "integration_type": "service",
-  "iot_class": "local_push"
+  "integration_type": "hub",
+  "iot_class": "local_push",
+  "documentation": "https://github.com/hohanpin/HugCare-HA-Integration",
+  "issue_tracker": "https://github.com/hohanpin/HugCare-HA-Integration/issues",
+  "codeowners": [
+    "@hohanpin"
+  ]
 }
