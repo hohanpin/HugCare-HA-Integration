@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import logging
 from typing import Any
@@ -114,7 +114,7 @@ async def _async_network_from_ha_cli(target_ipv4: str | None = None) -> dict[str
         return {}
 
     if process.returncode != 0:
-        _LOGGER.warning("HugCare ha cli fallback failed: %s", stderr.decode(errors="ignore").strip())
+        _LOGGER.debug("HugCare ha cli fallback failed: %s", stderr.decode(errors="ignore").strip())
         return {}
 
     output = stdout.decode(errors="ignore")
@@ -334,7 +334,7 @@ async def _async_detect_network_defaults(hass) -> dict[str, str]:
         try:
             mac_path = Path("/sys/class/net") / interface_name / "address"
             if not mac_path.exists():
-                _LOGGER.warning(
+                _LOGGER.debug(
                     "HugCare adapter diagnostic sysfs path not found for interface=%s path=%s",
                     interface_name,
                     mac_path,
@@ -344,7 +344,7 @@ async def _async_detect_network_defaults(hass) -> dict[str, str]:
             mac = _normalize_mac(raw)
             if mac and mac != "00:00:00:00:00:00":
                 return mac
-            _LOGGER.warning(
+            _LOGGER.debug(
                 "HugCare adapter diagnostic sysfs returned invalid mac interface=%s raw=%s",
                 interface_name,
                 raw,
@@ -376,7 +376,7 @@ async def _async_detect_network_defaults(hass) -> dict[str, str]:
             return ""
 
         if process.returncode != 0:
-            _LOGGER.warning(
+            _LOGGER.debug(
                 "HugCare adapter diagnostic ip link failed interface=%s err=%s",
                 interface_name,
                 stderr.decode(errors="ignore").strip(),
@@ -386,7 +386,7 @@ async def _async_detect_network_defaults(hass) -> dict[str, str]:
         output = stdout.decode(errors="ignore")
         match = re.search(r"link/ether\s+([0-9a-fA-F:]{17})", output)
         if not match:
-            _LOGGER.warning(
+            _LOGGER.debug(
                 "HugCare adapter diagnostic ip link no mac found interface=%s output=%s",
                 interface_name,
                 output.replace("\n", " | "),
@@ -412,7 +412,7 @@ async def _async_detect_network_defaults(hass) -> dict[str, str]:
     for index, adapter in enumerate(default_first):
         adapter_name = str(adapter.get("name", ""))
         if not adapter.get("enabled", True):
-            _LOGGER.warning(
+            _LOGGER.debug(
                 "HugCare adapter diagnostic skip disabled adapter index=%s name=%s",
                 index,
                 adapter_name,
@@ -420,7 +420,7 @@ async def _async_detect_network_defaults(hass) -> dict[str, str]:
             continue
 
         if _is_noisy_virtual_interface(adapter_name):
-            _LOGGER.warning(
+            _LOGGER.debug(
                 "HugCare adapter diagnostic skip noisy interface index=%s name=%s",
                 index,
                 adapter_name,
@@ -432,7 +432,7 @@ async def _async_detect_network_defaults(hass) -> dict[str, str]:
             for key in ("mac_address", "mac", "hw_address", "hwaddress")
             if key in adapter
         }
-        _LOGGER.warning(
+        _LOGGER.debug(
             "HugCare adapter diagnostic index=%s name=%s default=%s enabled=%s keys=%s ipv4_raw=%s mac_raw=%s",
             index,
             adapter.get("name"),
@@ -450,7 +450,7 @@ async def _async_detect_network_defaults(hass) -> dict[str, str]:
             mac_from_sysfs = await hass.async_add_executor_job(_read_mac_from_sysfs_sync, adapter_name)
             if mac_from_sysfs:
                 mac_address = mac_from_sysfs
-                _LOGGER.warning(
+                _LOGGER.debug(
                     "HugCare adapter diagnostic detected_mac_from_sysfs interface=%s mac=%s",
                     adapter_name,
                     mac_address,
@@ -459,7 +459,7 @@ async def _async_detect_network_defaults(hass) -> dict[str, str]:
                 mac_from_ip_link = await _async_mac_from_ip_link(adapter_name)
                 if mac_from_ip_link:
                     mac_address = mac_from_ip_link
-                    _LOGGER.warning(
+                    _LOGGER.debug(
                         "HugCare adapter diagnostic detected_mac_from_ip_link interface=%s mac=%s",
                         adapter_name,
                         mac_address,
@@ -467,7 +467,7 @@ async def _async_detect_network_defaults(hass) -> dict[str, str]:
 
         if ipv4_address and mac_address:
             best_with_ipv4_and_mac = {"ipv4_address": ipv4_address, "mac_address": mac_address}
-            _LOGGER.warning(
+            _LOGGER.debug(
                 "HugCare selected adapter index=%s detected_ipv4=%s detected_mac=%s",
                 index,
                 ipv4_address,
@@ -490,13 +490,13 @@ async def _async_detect_network_defaults(hass) -> dict[str, str]:
         ha_cli_mac = ha_cli_detected.get("mac_address", "")
         if ha_cli_mac:
             best_with_ipv4["mac_address"] = ha_cli_mac
-            _LOGGER.warning(
+            _LOGGER.debug(
                 "HugCare adapter diagnostic fallback detected_mac_from_ha_cli_for_ipv4=%s mac=%s",
                 target_ipv4,
                 ha_cli_mac,
             )
         else:
-            _LOGGER.warning(
+            _LOGGER.debug(
                 "HugCare adapter diagnostic no_mac_from_ha_cli_for_ipv4=%s",
                 target_ipv4,
             )
@@ -506,12 +506,12 @@ async def _async_detect_network_defaults(hass) -> dict[str, str]:
     ha_cli_mac = ha_cli_detected.get("mac_address", "")
     if ha_cli_detected:
         if first_mac_only and ha_cli_mac and first_mac_only != ha_cli_mac:
-            _LOGGER.warning(
+            _LOGGER.debug(
                 "HugCare adapter diagnostic differing_mac_candidates adapter_mac=%s ha_cli_mac=%s",
                 first_mac_only,
                 ha_cli_mac,
             )
-        _LOGGER.warning(
+        _LOGGER.debug(
             "HugCare adapter diagnostic fallback detected_from_ha_cli ipv4=%s mac=%s",
             ha_cli_detected.get("ipv4_address", ""),
             ha_cli_mac,
@@ -520,13 +520,13 @@ async def _async_detect_network_defaults(hass) -> dict[str, str]:
 
     fallback_mac = _fallback_machine_mac()
     if fallback_mac:
-        _LOGGER.warning(
+        _LOGGER.debug(
             "HugCare adapter diagnostic fallback detected_mac_from_uuid=%s",
             fallback_mac,
         )
         return {"mac_address": fallback_mac}
 
-    _LOGGER.warning("HugCare adapter diagnostic found no usable ipv4/mac values")
+    _LOGGER.debug("HugCare adapter diagnostic found no usable ipv4/mac values")
 
     return {}
 
@@ -608,3 +608,4 @@ class HugCareGatewayOptionsFlow(config_entries.OptionsFlow):
             data_schema=_build_schema(defaults),
             errors=errors,
         )
+
