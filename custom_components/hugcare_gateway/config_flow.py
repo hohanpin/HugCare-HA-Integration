@@ -6,6 +6,7 @@ from urllib.parse import urlparse
 import asyncio
 import uuid
 import ipaddress
+import re
 
 import voluptuous as vol
 from homeassistant.components.network import async_get_adapters
@@ -77,8 +78,8 @@ def _extract_mac_from_nested(data: Any) -> str:
     return ""
 
 
-async def _async_mac_from_ha_cli(target_ipv4: str | None = None) -> str:
-    """Try to resolve MAC from `ha network info`, preferring the target IPv4 interface."""
+async def _async_network_from_ha_cli(target_ipv4: str | None = None) -> dict[str, str]:
+    """Try to resolve IPv4 and MAC from `ha network info`."""
     try:
         process = await asyncio.create_subprocess_exec(
             "ha",
@@ -89,20 +90,21 @@ async def _async_mac_from_ha_cli(target_ipv4: str | None = None) -> str:
         )
         stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=5)
     except Exception:
-        return ""
+        return {}
 
     if process.returncode != 0:
         _LOGGER.warning("HugCare ha cli fallback failed: %s", stderr.decode(errors="ignore").strip())
-        return ""
+        return {}
 
     output = stdout.decode(errors="ignore")
 
     candidates: list[dict[str, Any]] = []
     current_mac = ""
     current_ipv4s: list[str] = []
+    ipv4_pattern = re.compile(r"\b(?:\d{1,3}\.){3}\d{1,3}(?:/\d{1,2})?\b")
 
     def _commit_current() -> None:
-        if current_mac:
+        if current_mac or current_ipv4s:
             candidates.append({"mac": current_mac, "ipv4s": list(current_ipv4s)})
 
     for line in output.splitlines():
@@ -122,9 +124,9 @@ async def _async_mac_from_ha_cli(target_ipv4: str | None = None) -> str:
                     current_mac = mac
             continue
 
-        if "address:" in stripped:
-            addr_raw = stripped.split("address:", 1)[1].strip().strip('"').strip("'")
-            ipv4 = addr_raw.split("/", 1)[0]
+        match = ipv4_pattern.search(stripped)
+        if match:
+            ipv4 = match.group(0).split("/", 1)[0]
             if _is_preferred_ipv4(ipv4):
                 current_ipv4s.append(ipv4)
 
@@ -133,17 +135,53 @@ async def _async_mac_from_ha_cli(target_ipv4: str | None = None) -> str:
     if target_ipv4:
         for candidate in candidates:
             if target_ipv4 in candidate["ipv4s"]:
-                return candidate["mac"]
+                detected: dict[str, str] = {"ipv4_address": target_ipv4}
+                if candidate["mac"]:
+                    detected["mac_address"] = candidate["mac"]
+                return detected
+
+    for candidate in candidates:
+        if candidate["ipv4s"] and candidate["mac"]:
+            return {
+                "ipv4_address": candidate["ipv4s"][0],
+                "mac_address": candidate["mac"],
+            }
 
     for candidate in candidates:
         if candidate["ipv4s"]:
-            return candidate["mac"]
+            return {"ipv4_address": candidate["ipv4s"][0]}
 
     for candidate in candidates:
         if candidate["mac"]:
-            return candidate["mac"]
+            return {"mac_address": candidate["mac"]}
 
-    return ""
+    # Last resort: parse globally like shell pipeline behavior.
+    first_ipv4 = ""
+    first_mac = ""
+    for line in output.splitlines():
+        if not first_ipv4:
+            match = ipv4_pattern.search(line)
+            if match:
+                ipv4 = match.group(0).split("/", 1)[0]
+                if _is_preferred_ipv4(ipv4):
+                    first_ipv4 = ipv4
+
+        if not first_mac:
+            stripped = line.strip()
+            if stripped.lower().startswith("mac:"):
+                parts = stripped.split(":", 1)
+                if len(parts) == 2:
+                    first_mac = _normalize_mac(parts[1])
+
+        if first_ipv4 and first_mac:
+            break
+
+    detected: dict[str, str] = {}
+    if first_ipv4:
+        detected["ipv4_address"] = first_ipv4
+    if first_mac:
+        detected["mac_address"] = first_mac
+    return detected
 
 
 def _validate_input(data: dict[str, Any]) -> dict[str, str]:
@@ -315,7 +353,8 @@ async def _async_detect_network_defaults(hass) -> dict[str, str]:
 
     if best_with_ipv4 is not None:
         target_ipv4 = best_with_ipv4["ipv4_address"]
-        ha_cli_mac = await _async_mac_from_ha_cli(target_ipv4)
+        ha_cli_detected = await _async_network_from_ha_cli(target_ipv4)
+        ha_cli_mac = ha_cli_detected.get("mac_address", "")
         if ha_cli_mac:
             best_with_ipv4["mac_address"] = ha_cli_mac
             _LOGGER.warning(
@@ -325,20 +364,21 @@ async def _async_detect_network_defaults(hass) -> dict[str, str]:
             )
         return best_with_ipv4
 
-    ha_cli_mac = await _async_mac_from_ha_cli()
-    if ha_cli_mac:
-        detected: dict[str, str] = {"mac_address": ha_cli_mac}
-        if first_mac_only and first_mac_only != ha_cli_mac:
+    ha_cli_detected = await _async_network_from_ha_cli()
+    ha_cli_mac = ha_cli_detected.get("mac_address", "")
+    if ha_cli_detected:
+        if first_mac_only and ha_cli_mac and first_mac_only != ha_cli_mac:
             _LOGGER.warning(
                 "HugCare adapter diagnostic differing_mac_candidates adapter_mac=%s ha_cli_mac=%s",
                 first_mac_only,
                 ha_cli_mac,
             )
         _LOGGER.warning(
-            "HugCare adapter diagnostic fallback detected_mac_from_ha_cli=%s",
+            "HugCare adapter diagnostic fallback detected_from_ha_cli ipv4=%s mac=%s",
+            ha_cli_detected.get("ipv4_address", ""),
             ha_cli_mac,
         )
-        return detected
+        return ha_cli_detected
 
     fallback_mac = _fallback_machine_mac()
     if fallback_mac:
